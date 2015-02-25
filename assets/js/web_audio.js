@@ -8,7 +8,9 @@
         compatibility: {},
         files: [
             '/assets/music/synth.wav',
-            '/assets/music/beat.wav'
+            '/assets/music/beat.wav',
+			'/assets/music/skyloop.wav',
+            '/assets/music/AfricanTribalCircle.wav'
         ],
         proceed: true,
         source_loop: {},
