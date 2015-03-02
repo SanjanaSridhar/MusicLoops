@@ -1,5 +1,32 @@
 <!-- hide script from old browsers   
 
+	//-------
+	//PubNub
+	//-------
+
+	var channel = 'sound';
+	var audioStopped = [];
+	var audioPlaying = [];
+	var pubnub = PUBNUB.init({ 
+		publish_key: 'pub-c-6687236f-6742-400f-b40f-a46d97b0a30b', 
+		subscribe_key: 'sub-c-fb8dc442-450d-11e4-8971-02ee2ddab7fe' 
+	});
+	
+	pubnub.subscribe({
+		channel: channel,
+		callback: playFromStream
+	});	
+	
+	//-------------
+	//PubNub Publish
+	//--------------
+	
+	function publish(data) {
+		pubnub.publish({
+			channel: channel,
+			message: data
+		});
+	}
    //--------------
     // Audio Object
     //--------------
@@ -14,7 +41,8 @@
         ],
         proceed: true,
         source_loop: {},
-        source_once: {}
+        source_once: {},
+		//volumeNode: null
     };
 
     //-----------------
@@ -43,13 +71,19 @@
     };
 
     audio.play = function(n) {
-        if (audio.source_loop[n]._playing) {
+		
+		if (audio.source_loop[n]._playing) {
             audio.stop(n);
         } else {
+			audioPlaying.push(n);
             audio.source_loop[n] = audio.context.createBufferSource();
             audio.source_loop[n].buffer = audio.buffer[n];
             audio.source_loop[n].loop = true;
             audio.source_loop[n].connect(audio.context.destination);
+			//audio.volumeNode = audio.context.createGainNode();
+			//audio.volumeNode.gain.value = 100;
+			//audio.source_loop[n].connect(volumeNode);
+            //audio.volumeNode.connect(audio.context.destination);
 
             var offset = audio.findSync(n);
             audio.source_loop[n]._startTime = audio.context.currentTime;
@@ -76,6 +110,21 @@
             }
 
             audio.source_loop[n]._playing = true;
+			console.log("playing");
+			for(a = 0; a < audioPlaying.length; a++) {
+				console.log(audioPlaying[a]);
+				var index = audioStopped.indexOf(n);
+				if(index!=-1){
+					audioStopped.splice(index, 1);
+				}
+			}
+			
+			publish({
+				audioStopped: audioStopped,
+				audioPlaying: audioPlaying
+			});
+			
+			
         }
     };
 
@@ -87,9 +136,38 @@
             if (audio.compatibility.start === 'noteOn') {
                 audio.source_once[n][audio.compatibility.stop](0);
             }
+			audioStopped.push(n);
+			console.log("stopped");
+			for(a = 0; a < audioStopped.length; a++) {
+				console.log(audioStopped[a]);
+				var index = audioPlaying.indexOf(n);
+				if(index!=-1){
+					audioPlaying.splice(index, 1);
+				}
+			}
+			
+			publish({
+				audioStopped: audioStopped,
+				audioPlaying: audioPlaying
+			});
         }
     };
-
+	
+	function playFromStream(message) {
+		if(!message) return;	
+		for(a = 0; a < audioPlaying.length; a++)// {
+			console.log('playing from stream:', message.audioPlaying[a]);
+			audio.play(message.audioPlaying[a]);
+		//}
+		/**
+		for(b = 0; b < audioStopped.length; b++) {
+			console.log('playing from stream:', message.audioStopped[b]);
+			audio.stop(message.audioStopped[b]);
+		} **/
+		//console.log(message.audioStopped.toString());
+	}
+	
+	
     //-----------------------------
     // Check Web Audio API Support
     //-----------------------------
